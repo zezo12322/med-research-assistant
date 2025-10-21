@@ -1,0 +1,29 @@
+// Fix missing namespaces in Flutter plugins for AGP 8+
+allprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            def android = project.android
+            
+            // Check if it's a library and namespace is not set
+            if (android.hasProperty('namespace') && android.namespace == null) {
+                // Try to read package from AndroidManifest.xml
+                def manifestFile = file("${project.projectDir}/src/main/AndroidManifest.xml")
+                if (manifestFile.exists()) {
+                    def manifestText = manifestFile.text
+                    def packageMatcher = (manifestText =~ /package\s*=\s*["']([^"']+)["']/)
+                    
+                    if (packageMatcher.find()) {
+                        def packageName = packageMatcher.group(1)
+                        android.namespace = packageName
+                        println("✓ Auto-fixed namespace for ${project.name}: ${packageName}")
+                    } else {
+                        // Fallback: generate from project name
+                        def fallbackNamespace = "com.${project.name.replaceAll('[^a-zA-Z0-9]', '_')}"
+                        android.namespace = fallbackNamespace
+                        println("⚠ Fallback namespace for ${project.name}: ${fallbackNamespace}")
+                    }
+                }
+            }
+        }
+    }
+}
