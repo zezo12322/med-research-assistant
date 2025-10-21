@@ -8,20 +8,32 @@ class SecureStorageService {
   static const String _biometricKey = 'biometric_enabled';
   
   // Encryption key - MUST be exactly 32 characters (256 bits)
-  static final _key = Key.fromUtf8('medResearchAssistantKey2025!!'); // Exactly 32 chars
-  static final _iv = IV.fromLength(16);
-  static final _encrypter = Encrypter(AES(_key));
+  // Count: MedResearchAssistant_Key_2025_v1
+  //        12345678901234567890123456789012
+  static const String _encryptionKeyString = 'MedResearchAssistant_Key_2025_v1'; // Exactly 32 chars
+  
+  // IV - MUST be exactly 16 characters (128 bits) and FIXED (not random!)
+  //      1234567890123456
+  static const String _ivString = 'MedResearch_IV16'; // Exactly 16 chars
+  
+  // Use getters to ensure consistent key and IV
+  static Key get _key => Key.fromUtf8(_encryptionKeyString);
+  static IV get _iv => IV.fromUtf8(_ivString);
+  static Encrypter get _encrypter => Encrypter(AES(_key));
   
   /// Save PIN securely (encrypted)
   static Future<bool> savePin(String pin) async {
     try {
       print('💾 Saving PIN to SharedPreferences...');
+      print('   PIN to save: [${pin.length} digits]');
       
       final prefs = await SharedPreferences.getInstance();
       
       // Encrypt the PIN
       final encrypted = _encrypter.encrypt(pin, iv: _iv);
       final encryptedString = encrypted.base64;
+      
+      print('   Encrypted: ${encryptedString.substring(0, 20)}...');
       
       // Save to SharedPreferences
       final saved = await prefs.setString(_pinKey, encryptedString);
@@ -50,12 +62,21 @@ class SecureStorageService {
         return null;
       }
       
-      // Decrypt the PIN
-      final encrypted = Encrypted.fromBase64(encryptedString);
-      final decrypted = _encrypter.decrypt(encrypted, iv: _iv);
+      print('   Found encrypted: ${encryptedString.substring(0, 20)}...');
       
-      print('   PIN found: [HIDDEN]');
-      return decrypted;
+      try {
+        // Decrypt the PIN
+        final encrypted = Encrypted.fromBase64(encryptedString);
+        final decrypted = _encrypter.decrypt(encrypted, iv: _iv);
+        
+        print('   Decrypted: [${decrypted.length} digits]');
+        return decrypted;
+      } catch (e) {
+        // If decryption fails (old key), clear corrupted data
+        print('⚠️  Corrupted PIN data detected (old encryption key), clearing...');
+        await prefs.remove(_pinKey);
+        return null;
+      }
     } catch (e) {
       print('❌ Read PIN Error: $e');
       return null;

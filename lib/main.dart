@@ -73,9 +73,9 @@ class _AppLifecycleManagerState extends ConsumerState<AppLifecycleManager> with 
   void didChangeAppLifecycleState(AppLifecycleState state) {
     print('🔄 App Lifecycle: $state');
     
-    // Lock when app goes to background
-    if (state == AppLifecycleState.paused || 
-        state == AppLifecycleState.inactive) {
+    // Only lock on PAUSED (actually going to background)
+    // DON'T lock on INACTIVE (camera, notifications, etc.)
+    if (state == AppLifecycleState.paused) {
       print('🔒 Locking app - going to background');
       
       // Logout to require authentication again

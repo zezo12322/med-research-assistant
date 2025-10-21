@@ -30,7 +30,8 @@ class _ProjectsListScreenState extends ConsumerState<ProjectsListScreen> with Wi
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    // Only lock on PAUSED (app in background), not INACTIVE (camera/notifications)
+    if (state == AppLifecycleState.paused) {
       // Lock the app when going to background
       ref.read(authProvider.notifier).logout();
     } else if (state == AppLifecycleState.resumed) {

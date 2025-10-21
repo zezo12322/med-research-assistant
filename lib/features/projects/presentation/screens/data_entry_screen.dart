@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
+import 'dart:convert';
 import '../../data/models/form_field_model.dart';
 import '../../data/models/patient_entry_model.dart';
 import '../../providers/projects_provider.dart';
@@ -62,6 +64,9 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
       for (var fieldValue in existingEntry!.fieldValues) {
         _values[fieldValue.fieldId] = fieldValue.value;
       }
+    } else {
+      // Load draft if exists (only for new entries)
+      await _loadDraft();
     }
     
     // Initialize controllers for text fields
@@ -70,6 +75,9 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
         _controllers[field.fieldId] = TextEditingController(
           text: _values[field.fieldId]?.toString() ?? '',
         );
+        
+        // Auto-save draft on text change
+        _controllers[field.fieldId]!.addListener(() => _saveDraft());
       }
     }
     
@@ -77,6 +85,59 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
       fields = loadedFields;
       isLoading = false;
     });
+  }
+  
+  // Save draft to SharedPreferences
+  Future<void> _saveDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final draftKey = 'draft_${widget.projectId}';
+      
+      // Collect current values
+      final draftData = <String, dynamic>{};
+      
+      for (var field in fields) {
+        if (_controllers.containsKey(field.fieldId)) {
+          draftData[field.fieldId] = _controllers[field.fieldId]!.text;
+        } else if (_values.containsKey(field.fieldId)) {
+          draftData[field.fieldId] = _values[field.fieldId];
+        }
+      }
+      
+      await prefs.setString(draftKey, json.encode(draftData));
+      print('💾 Draft auto-saved');
+    } catch (e) {
+      print('❌ Failed to save draft: $e');
+    }
+  }
+  
+  // Load draft from SharedPreferences
+  Future<void> _loadDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final draftKey = 'draft_${widget.projectId}';
+      final draftString = prefs.getString(draftKey);
+      
+      if (draftString != null) {
+        final draftData = json.decode(draftString) as Map<String, dynamic>;
+        _values.addAll(draftData);
+        print('📂 Draft loaded');
+      }
+    } catch (e) {
+      print('❌ Failed to load draft: $e');
+    }
+  }
+  
+  // Clear draft after successful save
+  Future<void> _clearDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final draftKey = 'draft_${widget.projectId}';
+      await prefs.remove(draftKey);
+      print('🗑️ Draft cleared');
+    } catch (e) {
+      print('❌ Failed to clear draft: $e');
+    }
   }
 
   Future<void> _saveEntry() async {
@@ -145,6 +206,9 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
         }
       }
       
+      // Clear draft after successful save
+      await _clearDraft();
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -197,6 +261,7 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
         setState(() {
           _values[fieldId] = image.path;
         });
+        _saveDraft(); // Auto-save draft
       }
     }
   }
@@ -334,6 +399,7 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
               setState(() {
                 _values[field.fieldId] = date.toIso8601String();
               });
+              _saveDraft(); // Auto-save draft
             }
           },
           child: InputDecorator(
@@ -370,6 +436,7 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
             setState(() {
               _values[field.fieldId] = value;
             });
+            _saveDraft(); // Auto-save draft
           },
           validator: field.isRequired
               ? (value) => value == null ? 'Required' : null
@@ -385,6 +452,7 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
               setState(() {
                 _values[field.fieldId] = value.toString();
               });
+              _saveDraft(); // Auto-save draft
             },
           ),
         );
@@ -425,6 +493,7 @@ class _DataEntryScreenState extends ConsumerState<DataEntryScreen> {
                             setState(() {
                               _values[field.fieldId] = null;
                             });
+                            _saveDraft(); // Auto-save draft
                           },
                         ),
                       ),

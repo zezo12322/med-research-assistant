@@ -109,13 +109,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
   
   Future<bool> verifyPin(String pin) async {
     try {
+      print('🔑 Verifying PIN...');
+      print('   Input PIN: [${pin.length} digits]');
+      
       final storedPin = await SecureStorageService.readPin();
+      
+      if (storedPin == null) {
+        print('❌ No stored PIN found');
+        return false;
+      }
+      
+      print('   Stored PIN: [${storedPin.length} digits]');
+      print('   Match: ${storedPin == pin}');
+      
       if (storedPin == pin) {
+        print('✅ PIN Verified Successfully!');
         state = state.copyWith(isAuthenticated: true);
         return true;
       }
+      
+      print('❌ PIN Mismatch!');
       return false;
     } catch (e) {
+      print('❌ Verify PIN Error: $e');
       return false;
     }
   }
