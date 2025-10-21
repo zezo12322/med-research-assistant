@@ -7,8 +7,8 @@ class SecureStorageService {
   static const String _pinKey = 'encrypted_user_pin';
   static const String _biometricKey = 'biometric_enabled';
   
-  // Encryption key - in production, generate this securely and store it in native keychain
-  static final _key = Key.fromUtf8('my32lengthsupersecretnoionkey!'); // 32 chars
+  // Encryption key - MUST be exactly 32 characters (256 bits)
+  static final _key = Key.fromUtf8('medResearchAssistantKey2025!!'); // Exactly 32 chars
   static final _iv = IV.fromLength(16);
   static final _encrypter = Encrypter(AES(_key));
   
