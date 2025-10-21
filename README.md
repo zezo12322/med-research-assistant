@@ -300,7 +300,7 @@ Built with ❤️ for medical researchers who deserve better tools than Excel sp
 ## 📞 Contact / التواصل
 
 For questions or support:
-- Email: your.email@example.com
+- Email: zeyadelshreef9@gmail.com
 - GitHub Issues: [Create an issue](https://github.com/yourusername/med-research-assistant/issues)
 
 ---
