@@ -39,6 +39,8 @@ dependencies:
   flutter_svg: ^2.0.10+1
   intl: ^0.20.0
   uuid: ^4.4.0
+  shared_preferences: ^2.5.3
+  encrypt: ^5.0.3
 
 dev_dependencies:
   flutter_test:

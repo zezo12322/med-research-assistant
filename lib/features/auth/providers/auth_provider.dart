@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+import '../../../core/storage/secure_storage_service.dart';
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier();
@@ -39,12 +39,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _init();
   }
   
-  // Use default secure storage without custom options
-  final _storage = const FlutterSecureStorage();
   final _localAuth = LocalAuthentication();
-  
-  static const String _pinKey = 'user_pin';
-  static const String _biometricEnabledKey = 'biometric_enabled';
   
   Future<void> _init() async {
     try {
@@ -66,9 +61,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   
   Future<bool> _checkIfPinExists() async {
     try {
-      final pin = await _storage.read(key: _pinKey);
-      print('🔍 Checking PIN: ${pin != null ? "Found" : "Not Found"}');
-      return pin != null && pin.isNotEmpty;
+      return await SecureStorageService.hasPin();
     } catch (e) {
       print('❌ Check PIN Error: $e');
       return false;
@@ -90,23 +83,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
       print('💾 Saving PIN to secure storage...');
       
       // Delete any existing PIN first
-      await _storage.delete(key: _pinKey);
+      await SecureStorageService.deletePin();
       
       // Write new PIN
-      await _storage.write(key: _pinKey, value: pin);
+      final saved = await SecureStorageService.savePin(pin);
       
-      // Verify it was saved by reading it back
-      final saved = await _storage.read(key: _pinKey);
-      print('✅ PIN Saved and Verified: ${saved == pin ? "SUCCESS" : "FAILED"}');
-      print('   Saved value: ${saved != null ? "[HIDDEN]" : "NULL"}');
-      
-      if (saved == pin) {
-        state = state.copyWith(hasPinSet: true);
-        return true;
-      } else {
-        print('❌ Verification failed - saved value does not match');
-        return false;
+      if (saved) {
+        // Verify it was saved by reading it back
+        final readBack = await SecureStorageService.readPin();
+        print('✅ PIN Saved and Verified: ${readBack == pin ? "SUCCESS" : "FAILED"}');
+        
+        if (readBack == pin) {
+          state = state.copyWith(hasPinSet: true);
+          return true;
+        }
       }
+      
+      print('❌ PIN save verification failed');
+      return false;
     } catch (e) {
       print('❌ Set PIN Error: $e');
       return false;
@@ -115,7 +109,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   
   Future<bool> verifyPin(String pin) async {
     try {
-      final storedPin = await _storage.read(key: _pinKey);
+      final storedPin = await SecureStorageService.readPin();
       if (storedPin == pin) {
         state = state.copyWith(isAuthenticated: true);
         return true;
@@ -152,7 +146,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   
   Future<bool> changePin(String oldPin, String newPin) async {
     // Verify old PIN without changing auth state
-    final storedPin = await _storage.read(key: _pinKey);
+    final storedPin = await SecureStorageService.readPin();
     if (storedPin == oldPin) {
       return await setPin(newPin);
     }
@@ -160,16 +154,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
   
   Future<void> resetPin() async {
-    await _storage.delete(key: _pinKey);
+    await SecureStorageService.deletePin();
     state = state.copyWith(hasPinSet: false, isAuthenticated: false);
   }
   
   Future<bool> isBiometricEnabled() async {
-    final value = await _storage.read(key: _biometricEnabledKey);
-    return value == 'true';
+    return await SecureStorageService.isBiometricEnabled();
   }
   
   Future<void> setBiometricEnabled(bool enabled) async {
-    await _storage.write(key: _biometricEnabledKey, value: enabled.toString());
+    await SecureStorageService.setBiometricEnabled(enabled);
   }
 }
